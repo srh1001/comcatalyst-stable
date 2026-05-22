@@ -1,0 +1,11 @@
+[build-system]
+requires = ["setuptools", "smt"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "comcatalyst"
+version = "0.1.0"
+description = ""
+
+[tool.setuptools.packages.find]
+where = ["src"]
