@@ -59,7 +59,7 @@ def plot_gp_quant_by_qual(
     vars_metadata: VarsMetadata,
     x_opt: np.ndarray,
     quant_to_variate_idx: int,
-    min_optim: bool,
+    reverse_optim: bool,
     qual_filter: List[Tuple[int, Optional[List]]] = None,
     x_data: np.ndarray = None,
     y_data: np.ndarray = None,
@@ -67,7 +67,7 @@ def plot_gp_quant_by_qual(
     y_opt: float = None,
     x_true_max: np.ndarray = None,
     y_true_max: float = None,
-    ic_factor: int = 2,
+    ic_factor: int = 1.96,
     n_points: int = 100,
     title: str = 'GP quantitative vs. qualitative variables',
     figsize: Tuple[int, int] = (9, 5),
@@ -112,8 +112,8 @@ def plot_gp_quant_by_qual(
         curve_label = ', '.join(label_parts) # labels des courbes pour chaque combinaison de modalités
 
         # calculer mu et sigma (pour la bande d'incertitude) du GP sur ces points créés
-        sign = -1.0 if min_optim else 1.0 # # si modèle trouvé par minimisation (comme EGO) alors qu'on voulait maximiser, le modèle prédit -y (car entrainé sur -y), donc on fait *-1
-        mu = sign * sm.predict_values(x_pred).ravel() # ravel() car predict values retourne (n, 1) (1 car 1 seul y dans notre cas) et ax.plot attend (n,)
+        sign = -1.0 if reverse_optim else 1.0 # si modèle trouvé par minimisation (comme EGO) alors qu'on voulait maximiser, le modèle prédit -y (car entrainé sur -y), donc on fait *-1
+        mu = sign * sm.predict_values(x_pred).ravel() # ravel() car predict values retourne (n, 1) et ax.plot attend (n,)
         sd = np.sqrt(sm.predict_variances(x_pred).ravel())
 
         ax.fill_between(quant_to_variate_grid, mu - ic_factor*sd, mu + ic_factor*sd, alpha=0.15, color=color)
@@ -155,7 +155,7 @@ def plot_3d_gp_quant_by_qual(
     x_opt: np.ndarray,
     quant_to_variate_idx_1: int,
     quant_to_variate_idx_2: int,
-    min_optim: bool,
+    reverse_optim: bool,
     qual_filter: List[Tuple[int, Optional[List]]] = None,
     n_grid: int = 30,
     x_data: np.ndarray = None,
@@ -216,7 +216,7 @@ def plot_3d_gp_quant_by_qual(
             subplot_label_parts.append(f"{vars_metadata[var_idx].name}={vars_metadata[var_idx].support[comb[k]]}")
 
         # calculer mu du GP sur ces points créés
-        sign = -1.0 if min_optim else 1.0 # si modèle trouvé par minimisation (comme EGO) alors qu'on voulait maximiser, le modèle prédit -y (car entrainé sur -y), donc on fait *-1
+        sign = -1.0 if reverse_optim else 1.0 # si modèle trouvé par minimisation (comme EGO) alors qu'on voulait maximiser, le modèle prédit -y (car entrainé sur -y), donc on fait *-1
         mu = sign * sm.predict_values(x_pred).ravel() # ravel() car predict values retourne (n, 1) (1 car 1 seul y dans notre cas) et ax.plot attend (n,)
         MU = mu.reshape(n_grid, n_grid)
 
@@ -393,7 +393,7 @@ def plot_3d_ground_truth(
     for i, comb in enumerate(combinations):
         ax = fig.add_subplot(n_rows, n_cols, i+1, projection="3d")
 
-        # vecteur de reference avec les valeurs fixees
+        # vecteur de réference
         x_ref = np.full(len(vars_metadata), np.nan)
 
         # fixer les qualitatives à la combinaison en cours
@@ -421,8 +421,25 @@ def plot_3d_ground_truth(
             sigma_noise=0,
         ).reshape(n_points, n_points)
 
-        ax.plot_surface(G1, G2, H, cmap="viridis", alpha=0.9)
-        ax.set_title(", ".join(label_parts), fontsize=9)
+        # maximum local de cette surface
+        best_idx = np.argmax(H)
+        best_row, best_col = np.unravel_index(best_idx, H.shape)
+        best_quant1 = G1[best_row, best_col]
+        best_quant2 = G2[best_row, best_col]
+        best_h = H[best_row, best_col]
+
+        # plot surface
+        ax.plot_surface(G1, G2, H, cmap="viridis", alpha=0.8)
+        # plot le maximum sur la surface
+        ax.scatter(best_quant1, best_quant2, best_h, color="red", s=100, marker="*", zorder=10)
+        ax.scatter(best_quant1, best_quant2, H.min(), color="red", s=100, marker="*", zorder=10)
+        ax.plot(
+            [best_quant1, best_quant1],
+            [best_quant2, best_quant2],
+            [H.min(), best_h],
+            color="red", lw=1, ls="--",
+        )
+        ax.set_title(", ".join(label_parts) + f"\nmax={best_h:.3f} at ({best_quant1:.3f}, {best_quant2:.3f})", fontsize=9)
         ax.set_xlabel(meta_1.name, fontsize=8)
         ax.set_ylabel(meta_2.name, fontsize=8)
         ax.set_zlabel("h true", fontsize=8)

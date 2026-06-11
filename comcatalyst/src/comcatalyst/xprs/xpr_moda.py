@@ -1,5 +1,4 @@
 import warnings
-import itertools
 import numpy as np
 from typing import Any, Tuple, Optional
 from dataclasses import dataclass
@@ -14,17 +13,15 @@ from smt.surrogate_models import KRG, MixIntKernelType
 from .xpr import XPR
 
 from ..vars.vars_metadata import VarsMetadata
-from ..utils import gower_distance, build_grid, calc_convergence_iter_bo
-
-warnings.filterwarnings("ignore")
+from ..utils import build_grid, calc_convergence_iter_bo
 
 @dataclass
 class XPRModAHyperparams:
     n_init: int
     n_iter_bo: int
     sampling_method: SamplingMethod
-    kernel: MixIntKernelType
     sampling_criterion: str
+    kernel: MixIntKernelType
     bo_criterion: str
     qei: str
     n_start: int
@@ -35,8 +32,8 @@ class XPRModAHyperparams:
             "n_init": self.n_init,
             "n_iter_bo": self.n_iter_bo,
             "sampling_method": self.sampling_method.__name__,
-            "kernel": self.kernel.name,
             "sampling_criterion": self.sampling_criterion,
+            "kernel": self.kernel.name,
             "bo_criterion": self.bo_criterion,
             "qei": self.qei,
             "n_start": self.n_start,
@@ -47,9 +44,11 @@ class XPRModAHyperparams:
 class XPRModAResultRunEgo:
     x_opt: np.ndarray
     y_opt: float
+    y_true_at_x_opt: float
+    convergence_iter_bo: int
     x_data: np.ndarray
     y_data: np.ndarray
-    convergence_iter_bo: int
+    y_true_at_x_data: np.ndarray
     sm: KrgBased
 
 @dataclass
@@ -58,19 +57,18 @@ class XPRModAResultRunXpr:
     seed_ydoe: int
     hyperparams: XPRModAHyperparams
  
-    x_init: np.ndarray
-    y_init: np.ndarray
-    x_opt: np.ndarray
-    y_opt: float
-    x_data: np.ndarray
-    y_data: np.ndarray
-    convergence_iter_bo: int
-    sm: KrgBased
- 
     x_true_max: np.ndarray
     y_true_max: float
-    x_gap: float
-    y_gap: float
+    x_opt: np.ndarray
+    y_opt: float
+    y_true_at_x_opt: float
+    convergence_iter_bo: int
+
+    x_data: np.ndarray
+    y_data: np.ndarray
+    y_true_at_x_data: np.ndarray
+
+    sm: KrgBased
  
     def to_json_dict(self) -> dict:
         """Convertit en dict sérialisable json."""
@@ -78,28 +76,29 @@ class XPRModAResultRunXpr:
             "seed": self.seed,
             "seed_ydoe": self.seed_ydoe,
             "hyperparams": self.hyperparams.to_dict(),
-            "x_init": self.x_init.tolist(),
-            "y_init": self.y_init.tolist(),
+
+            "x_true_max": self.x_true_max.tolist(),
+            "y_true_max": self.y_true_max,
             "x_opt": self.x_opt.tolist(),
-            "y_opt": float(self.y_opt),
+            "y_opt": self.y_opt,
+            "y_true_at_x_opt":  self.y_true_at_x_opt,
+            "convergence_iter_bo": self.convergence_iter_bo,
+
             "x_data": self.x_data.tolist(),
             "y_data": self.y_data.tolist(),
-            "convergence_iter_bo": self.convergence_iter_bo,
+            "y_true_at_x_data": self.y_true_at_x_data.tolist(),
+            
             "sm": "Not serializable",
-            "x_true_max": self.x_true_max.tolist(),
-            "y_true_max": float(self.y_true_max),
-            "x_gap": float(self.x_gap),
-            "y_gap": float(self.y_gap)
         }
 
 class XPRModA(XPR):
 
     @staticmethod
     def calc_true_max(
-        fn_gp_objective : callable,
-        vars_metadata   : VarsMetadata,
-        z               : Any,
-        n_grille        : int,
+        fn_gp_objective: callable,
+        vars_metadata: VarsMetadata,
+        z: Any,
+        n_grille: int,
     ) -> Tuple[np.ndarray, float, np.ndarray, np.ndarray]:
         """
         Returns
@@ -111,7 +110,7 @@ class XPRModA(XPR):
         """
         X_grid = build_grid(vars_metadata, n_grille) # shape (n_points, p)
 
-        Y_grid = fn_gp_objective(x=X_grid, vars_metadata=vars_metadata, z=z, sigma_noise=0) # shape (n_points,)
+        Y_grid = fn_gp_objective(x=X_grid, vars_metadata=vars_metadata, z=z, sigma_noise=0).ravel() # shape (n_points,)
 
         best_idx=np.argmax(Y_grid)
         x_true_max=X_grid[best_idx]
@@ -129,7 +128,7 @@ class XPRModA(XPR):
             rng: np.random.Generator
         ) -> np.ndarray:
         y = fn_gp_objective(x=x, vars_metadata=vars_metadata, z=z, sigma_noise=sigma_noise, rng=rng)
-        return -y.reshape(-1,1) # shape (auto, 1)
+        return -y
 
     @staticmethod
     def run_ego(
@@ -190,14 +189,19 @@ class XPRModA(XPR):
 
         x_opt, y_opt, _, x_data, y_data = ego.optimize(fun=fn_y_objective_for_ego)
         
+        y_true_at_x_opt = fn_gp_objective(x=x_opt, vars_metadata=vars_metadata, z=z, sigma_noise=0)
+        y_true_at_x_data = fn_gp_objective(x=x_data, vars_metadata=vars_metadata, z=z, sigma_noise=0) 
+        
         convergence_iter_bo = calc_convergence_iter_bo(y_data=-y_data, n_init=len(y_init))
 
         return XPRModAResultRunEgo(
             x_opt=x_opt,
-            y_opt=-float(y_opt[0]),
+            y_opt=-y_opt[0], # ok pour l'instant car une seule sortie y sinon à adapter et dans les fonctions de plots, etc. aussi...
+            y_true_at_x_opt=y_true_at_x_opt[0, 0], # ok pour l'instant car une seule sortie y sinon à adapter et dans les fonctions de plots, etc. aussi pour rendre compatible...
+            convergence_iter_bo=convergence_iter_bo,
             x_data=x_data,
             y_data=-y_data,
-            convergence_iter_bo=convergence_iter_bo,
+            y_true_at_x_data=y_true_at_x_data,
             sm=sm
         )
 
@@ -263,23 +267,18 @@ class XPRModA(XPR):
             seed=seed,
         )
 
-        x_gap = gower_distance(x1=x_true_max, x2=res_ego.x_opt, vars_metadata=vars_metadata)
-        y_gap = abs(float(y_true_max - res_ego.y_opt))
-
         return XPRModAResultRunXpr(
             seed=seed,
             seed_ydoe=seed_ydoe,
             hyperparams=hyperparams,
-            x_init=x_init_run,
-            y_init=-y_init_run,
-            x_opt=res_ego.x_opt,
-            y_opt=res_ego.y_opt,
-            x_data=res_ego.x_data,
-            y_data=res_ego.y_data,
-            convergence_iter_bo=res_ego.convergence_iter_bo,
-            sm=res_ego.sm,
             x_true_max=x_true_max,
             y_true_max=y_true_max,
-            x_gap=x_gap,
-            y_gap=y_gap
+            x_opt=res_ego.x_opt,
+            y_opt=res_ego.y_opt,
+            y_true_at_x_opt=res_ego.y_true_at_x_opt,
+            convergence_iter_bo=res_ego.convergence_iter_bo,
+            x_data=res_ego.x_data,
+            y_data=res_ego.y_data,
+            y_true_at_x_data=res_ego.y_true_at_x_data,
+            sm=res_ego.sm,
         )

@@ -1,23 +1,17 @@
 import warnings
-import itertools
 import numpy as np
 from typing import Any, Tuple, Optional
-from dataclasses import dataclass
  
 from smt.design_space import (
     DesignSpace,
     CategoricalVariable,
     FloatVariable,
 )
-from smt.applications import EGO
 from smt.applications.mixed_integer import MixedIntegerSamplingMethod
 from smt.sampling_methods.sampling_method import SamplingMethod
-from smt.surrogate_models.krg_based import KrgBased
-from smt.surrogate_models import KRG, MixIntKernelType
+from smt.surrogate_models import MixIntKernelType
  
 from ..vars.vars_metadata import VarsMetadata
-
-warnings.filterwarnings("ignore")
 
 class XPR:
   
