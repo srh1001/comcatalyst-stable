@@ -7,47 +7,42 @@ from smt.surrogate_models.krg_based import KrgBased
 
 from ..vars.vars_metadata import VarsMetadata
 
-def plot_comparison_convergence(
-    y_datas: list,
+def plot_convergence(
+    y_data: np.ndarray,
     n_init: int,
-    runs_labels: List[str] = [None],
+    label: str = None,
     title: str = "Convergence",
-    figsize: Tuple[int] = (8,4),
+    figsize: Tuple[int, int] = (8, 4),
     save_path: str = None,
 ) -> None:
 
     fig, ax = plt.subplots(figsize=figsize)
-    colors  = plt.cm.viridis(np.linspace(0, 1, len(y_datas)))
- 
-    all_best = [np.maximum.accumulate(y.ravel()) for y in y_datas]
- 
-    for best, y_data, label, color in zip(
-        all_best, y_datas, runs_labels, colors
-    ):
-        n = len(best)
-        ax.plot(range(1, n+1), best,
-                color=color, lw=2, marker="o", ms=4, 
-                label=f'{label} (Y best)' if label else 'Y best')
-        ax.plot(
-            range(1, n+1), y_data.ravel(), 
-            color=color, lw=0.8, ls='--', alpha=0.5,
-            label=f'{label} (Y)' if label else 'Y',
-        )
-        # separation DoE / BO avec la plage globale
-        ax.axvspan(1, n_init, alpha=0.07, color="orange")
-        ax.axvspan(n_init, n, alpha=0.07, color="green")
-        ax.axvline(n_init, color=color, ls="--", lw=1, alpha=0.6)
- 
-    # légendes pour DoE et BO
+
+    y_flat = y_data.ravel()
+    best = np.maximum.accumulate(y_flat)
+    n = len(best)
+
+    ax.plot(range(1, n + 1), best,
+            color="steelblue", lw=2, marker="o", ms=4,
+            label=f"{label} (Y best)" if label else "Y best")
+    ax.plot(range(1, n + 1), y_flat,
+            color="steelblue", lw=0.8, ls="--", alpha=0.5,
+            label=f"{label} (Y)" if label else "Y")
+
+    ax.axvspan(1, n_init, alpha=0.07, color="orange")
+    ax.axvspan(n_init, n, alpha=0.07, color="green")
+    ax.axvline(n_init, color="steelblue", ls="--", lw=1, alpha=0.6)
+
     ax.axvspan(0, 0, alpha=0.2, color="orange", label="DoE")
-    ax.axvspan(0, 0, alpha=0.2, color="green",  label="BO")
- 
+    ax.axvspan(0, 0, alpha=0.2, color="green", label="BO")
+
     ax.set_xlabel("Iteration")
     ax.set_ylabel("Y")
     ax.set_title(title)
     ax.legend(fontsize=9)
     ax.grid(True, alpha=0.3)
     plt.tight_layout()
+
     if save_path:
         plt.savefig(save_path, bbox_inches="tight")
         plt.close()
