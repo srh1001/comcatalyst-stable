@@ -1,22 +1,11 @@
 import numpy as np
 import itertools
+import json
+import numpy as np
+from pathlib import Path
+from typing import List
 
-from .vars.vars_metadata import VarsMetadata
-
-def gower_distance(x1: np.ndarray, x2: np.ndarray, vars_metadata: VarsMetadata) -> float:
-    distances = []
-    for i, meta in enumerate(vars_metadata):
-        if meta.is_categorical():
-            # 0 si même modalite, 1 sinon
-            distances.append(0.0 if x1[i] == x2[i] else 1.0)
-        elif meta.is_continuous():
-            # distance normalisée par le range
-            range_i = meta.support[1] - meta.support[0]
-            distances.append(abs(x1[i] - x2[i]) / range_i)
-        else:
-            raise ValueError("Gower distance not currently defined for variables other than continous or categorical." \
-                             f"Found variable of type: {meta.var_type}")
-    return float(np.mean(distances))
+from .context.vars_metadata import VarsMetadata
 
 def build_grid(vars_metadata: VarsMetadata, n_grid: int) -> np.ndarray:
     categ_vars_indexes = vars_metadata.get_categ_like_vars_indexes()

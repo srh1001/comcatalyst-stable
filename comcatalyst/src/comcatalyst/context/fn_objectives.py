@@ -1,7 +1,7 @@
 import numpy as np
 from typing import Any, Optional
 
-from comcatalyst.vars.vars_metadata import VarsMetadata
+from .vars_metadata import VarsMetadata
 
 def calc_gp_objective_01(
     x: np.ndarray,
@@ -94,17 +94,17 @@ def calc_gp_objective_02(
 
 def calc_gp_objective_03(
     x: np.ndarray,
-    vars_metadata: Any,
+    vars_metadata: VarsMetadata,
     z: Any,
     sigma_noise: float,
     rng: Optional[np.random.Generator] = None,
-    _F = {
+    _F: dict = {
         0: lambda q1, q2, q3: -(q1 + 0.8)**2 - (q2 - 0.7)**2 - (q3 + 0.6)**2 + 2.5,
         1: lambda q1, q2, q3: -(q1 - 0.7)**2 - (q3 + 0.6)**2 - (q2 - 0.8)**2 + 0.5,
         2: lambda q1, q2, q3: -(q1 - 0.0)**2 - (q2 - 0.8)**2 - (q3 + 0.3)**2 + 0.2,
         3: lambda q1, q2, q3: -(q2 - 0.5)**2 - (q2 + 0.4)**2 - (q3 - 0.5)**2 + 0.3,
     },
-    _G = {
+    _G: dict = {
         0: lambda q1, q2, q3: -(q1 - 0.6)**2 - (q2 - 0.5)**2 - (q3 - 0.7)**2 + 2.0,
         1: lambda q1, q2, q3: -(q1 + 0.5)**2 - (q2 + 0.7)**2 - (q3 + 0.4)**2 + 0.3,
         2: lambda q1, q2, q3: -(q1 - 0.3)**2 - (q2 - 0.2)**2 - (q3 + 0.6)**2 + 0.1,
