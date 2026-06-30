@@ -3,8 +3,6 @@ import matplotlib.pyplot as plt
 import itertools
 from typing import List, Tuple, Any, Optional
 
-from smt.surrogate_models.krg_based import KrgBased
-
 from ..context.vars_metadata import VarsMetadata
 
 def plot_ground_truth(

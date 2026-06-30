@@ -82,29 +82,3 @@ class Xpr(ABC):
         y_init: Optional[np.ndarray] = None,
     ) -> object:
         raise NotImplementedError()
-
-
-    # methodes d'affichage 
-
-    @staticmethod
-    def str_x_point(values: np.ndarray, vars_metada: VarsMetadata) -> str:
-        parts = []
-        for val, m in zip(values, vars_metada):
-            if m.is_categ_like():
-                label = m.support[int(val)]
-                parts.append(f"{m.name} = {label}")
-            else:
-                parts.append(f"{m.name} = {val:.4f}")
-        return " / ".join(parts)
-    
-    @staticmethod
-    def print_data(x_init: np.ndarray, y_init: np.ndarray, vars_metadata: VarsMetadata, indent: int=2) -> None:
-        for i in range(len(x_init)):
-            x_str = Xpr.str_x_point(values=x_init[i], vars_metada=vars_metadata)
-            print(" "*indent + f"{x_str} -> Y = {y_init[i,0]:.4f}")
-    
-    @staticmethod
-    def print_opt_result(x: np.ndarray, y: float, vars_metadata: VarsMetadata, indent: int=2) -> None:
-        x_str = Xpr.str_x_point(values=x, vars_metada=vars_metadata)
-        print(" "*indent + f"x* = {x_str}")
-        print(" "*indent + f"y* = {y:.4f}")

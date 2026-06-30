@@ -30,16 +30,21 @@ def benchmark(
     save_path_results: str,
     save_path_logs: str,
     max_n_points: int = None,
+    x_true_max: np.ndarray = None,
+    y_true_max: float = None,
     x_init: Optional[np.ndarray] = None,
     y_init: Optional[np.ndarray] = None,
 ) -> Tuple[list, int]:
 
-    x_true_max, y_true_max, _, _ = Xpr.calc_true_max(
-        fn_gp_objective=fn_gp_objective, 
-        vars_metadata=vars_metadata, 
-        z=z, 
-        n_grid=n_grid_true_max
-    )
+    if x_true_max is None or y_true_max is None:
+        print(f"\nCalculating true max...")
+
+        x_true_max, y_true_max, _, _ = Xpr.calc_true_max(
+            fn_gp_objective=fn_gp_objective, 
+            vars_metadata=vars_metadata, 
+            z=z, 
+            n_grid=n_grid_true_max
+        )
 
     vh_names = [name for name, _ in varying_hyperparams_dict]
     vh_vals  = [vals for _, vals in varying_hyperparams_dict]
@@ -53,7 +58,7 @@ def benchmark(
 
     run_id = 0
     
-    print(f"\n--- Experiments for hyperparameters {vh_names} ---")
+    print(f"\nExperiments running for varying hyperparameters {vh_names}...")
 
     for vh_combo in vh_combos:
         hyperparams_dict = {
@@ -97,7 +102,8 @@ def benchmark(
             all_results.append(result)
 
             print("\n", " "*4, "Results:")
-            xpr.print_opt_result(x=result.x_opt, y=result.y_opt, vars_metadata=vars_metadata, indent=8)
+            print(" "*8 + f"x_opt = {vars_metadata.str_values(result.x_opt)}")
+            print(" "*8 + f"y_opt = {result.y_opt:.3f}")
             print(" "*8 + f"y_true_at_x_opt = {result.y_true_at_x_opt:.3f}")
 
         except Exception as e:

@@ -1,5 +1,6 @@
 from typing import List, Any
 from dataclasses import dataclass
+import numpy as np
 
 @dataclass
 class VarMetadata:
@@ -64,3 +65,13 @@ class VarsMetadata:
     
     def get_ordinal_vars_metadata(self) -> List[VarMetadata]:
         return [m for m in self.vars_metadata if m.is_ordinal()]
+    
+    def str_values(self, values: np.ndarray) -> str:
+        parts = []
+        for val, m in zip(values, self.vars_metadata):
+            if m.is_categ_like():
+                label = m.support[int(val)]
+                parts.append(f"{m.name} = {label}")
+            else:
+                parts.append(f"{m.name} = {val:.4f}")
+        return " / ".join(parts)

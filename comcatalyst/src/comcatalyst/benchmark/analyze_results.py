@@ -211,7 +211,7 @@ def plot_boxplot(
         max_val = np.max(d)
 
         ax.text(i, median_val, f"med={median_val:.3f}", ha="center", va="bottom", fontsize=7, color="orange")
-        ax.text(i, mean_val, f"mean={mean_val:.3f}", ha="center", va="center", fontsize=7, color="blue")
+        ax.text(i, mean_val, f"mean={mean_val:.4f}", ha="center", va="center", fontsize=7, color="blue")
         ax.text(i, min_val, f"{min_val:.3f}", ha="center", va="top", fontsize=7, color="black")
         ax.text(i, max_val, f"{max_val:.3f}", ha="center", va="bottom", fontsize=7, color="black")
     
@@ -255,8 +255,8 @@ def summarize_results(results: List[dict], epsilon: float, filters: dict = None)
 
     # means
     print(f"N runs={len(results)}")
-    print(f"\ny_opt mean={np.mean(all_y_opt):.3f}, std={np.std(all_y_opt):.3f}, min={np.min(all_y_opt):.3f}, max={np.max(all_y_opt):.3f}")
-    print(f"y_true_at_x_opt mean={np.mean(all_y_true_at_x_opt):.3f}, std={np.std(all_y_true_at_x_opt):.3f}, min={np.min(all_y_true_at_x_opt):.3f}, max={np.max(all_y_true_at_x_opt):.3f}")
+    print(f"\ny_opt mean={np.mean(all_y_opt):.3f}, std={np.std(all_y_opt):.3f}, min={np.min(all_y_opt):.4f}, max={np.max(all_y_opt):.4f}")
+    print(f"y_true_at_x_opt mean={np.mean(all_y_true_at_x_opt):.3f}, std={np.std(all_y_true_at_x_opt):.3f}, min={np.min(all_y_true_at_x_opt):.4f}, max={np.max(all_y_true_at_x_opt):.4f}")
     print(f"conv_iter_bo mean={np.mean(all_convergence_iter_bo):.1f}, std={np.std(all_convergence_iter_bo):.1f}, min={np.min(all_convergence_iter_bo)}, max={np.max(all_convergence_iter_bo)}")
     print(f"\nSuccess rate gap={epsilon}: {n_success}/{len(results)}={100*n_success/len(results):.1f}%")
 
@@ -300,7 +300,7 @@ def stats_x_opt_qual_combos(
         combo_counts[combo] = combo_counts.get(combo, 0) + 1
 
     total = len(results)
-    print(f"\n{total} runs with {metric} in [{lb:.3f}, {ub:.3f}]")
+    print(f"\n{total} runs with {metric} in [{lb}, {ub}]")
     print(f"\n{'Combo':<20} {'n':>4}  {'%':>6}")
     print("-" * 35)
     for combo, count in sorted(combo_counts.items(), key=lambda x: -x[1]):
@@ -331,7 +331,7 @@ def details_doe_by_metric_range(
         results = results[:top_k] + results[-top_k:]
 
     print(f"\n{'='*60}")
-    print(f"{len(results)} runs with {metric} in [{lb:.3f}, {ub:.3f}]")
+    print(f"{len(results)} runs with {metric} in [{lb}, {ub}]")
     print(f"{'='*60}")
 
     for (k, r) in enumerate(results):
@@ -355,7 +355,7 @@ def details_doe_by_metric_range(
         elif top_k is not None and k % top_k == 0:
             print(f"\n === WORST TOP {top_k} ===")
 
-        print(f"\n  --- {metric}={r[metric]:.3f}")
+        print(f"\n  --- {metric}={r[metric]:.4f}  |  {r["hyperparams"]}")
         print(f"  {'Combo':<20} {'n':>3}  {'quant ranges':<50}  {'y range'}")
         print(f"  {'-'*100}")
 
@@ -385,7 +385,7 @@ def details_doe_by_metric_range(
                 for idx in cont_idxs
             )
 
-            y_range = f"[{y_combo.min():.3f}, {y_combo.max():.3f}]"
+            y_range = f"[{y_combo.min():.4f}, {y_combo.max():.4f}]"
 
             print(f"  {combo_label:<20} {count:>3}  {quant_ranges:<50}  {y_range}")
 

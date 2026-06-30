@@ -140,8 +140,8 @@ class XprSmt(Xpr):
         qei: str
             qEI méthode gérée par SMT. "KBUB", "KB", "KBLB", "KBUB", "KBRand".
         """
+        
         rng=np.random.default_rng(seed)
-
         fn_y_objective_for_ego = lambda x: XprSmt.calc_y_objective_for_ego(
                 fn_gp_objective=fn_gp_objective, 
                 vars_metadata=vars_metadata, 
@@ -218,6 +218,16 @@ class XprSmt(Xpr):
                 seed=hyperparams.seed,
             )
         else:
+            # Pour faire avance la consommation du générateur de design_space.sampler
+            # et que on ait résultat reproductible pour même seed sans x_init fourni.
+            # Car dans EGO, _sample_valid_x des n_start points utilise le sampler en question.
+            XprSmt.calc_x_init_with_sampling_method(
+                            n_init=hyperparams.n_init,
+                            design_space=design_space,
+                            sampling_method=hyperparams.sampling_method,
+                            sampling_criterion=hyperparams.sampling_criterion,
+                            seed=hyperparams.seed,
+                        )
             x_init_run = x_init
         
         if y_init is None:
