@@ -2,7 +2,7 @@ from datetime import datetime
 import json
 import numpy as np
 from pathlib import Path
-import os
+import traceback
 from typing import Any, List, Optional, Tuple
 import itertools
 
@@ -33,7 +33,6 @@ def benchmark(
     x_true_max: np.ndarray = None,
     y_true_max: float = None,
     x_init: Optional[np.ndarray] = None,
-    y_init: Optional[np.ndarray] = None,
 ) -> Tuple[list, int]:
 
     if x_true_max is None or y_true_max is None:
@@ -49,8 +48,10 @@ def benchmark(
     vh_names = [name for name, _ in varying_hyperparams_dict]
     vh_vals  = [vals for _, vals in varying_hyperparams_dict]
 
-    save_path_obj = Path(save_path_results)
-    save_path_obj.parent.mkdir(parents=True, exist_ok=True)
+    save_path_logs_obj = Path(save_path_logs)
+    save_path_logs_obj.parent.mkdir(parents=True, exist_ok=True)
+    save_path_results_obj = Path(save_path_results)
+    save_path_results_obj.parent.mkdir(parents=True, exist_ok=True)
  
     all_results: List[XprResultRun] = []
     vh_combos = list(itertools.product(*vh_vals))
@@ -67,6 +68,8 @@ def benchmark(
         }
 
         hyperparams = xpr.Hyperparams(**hyperparams_dict)
+        if x_init is not None:
+            hyperparams.n_init = x_init.shape[0]
 
         if max_n_points is not None:
             if max_n_points < hyperparams.n_init:
@@ -90,15 +93,14 @@ def benchmark(
                 y_true_max=y_true_max,
                 hyperparams=hyperparams,
                 x_init=x_init,
-                y_init=y_init,
             )
 
-            if save_path_obj.exists():
-                existing = json.loads(save_path_obj.read_text())
+            if save_path_results_obj.exists():
+                existing = json.loads(save_path_results_obj.read_text())
             else:
                 existing = []
             existing.append(result.to_json_dict())
-            save_path_obj.write_text(json.dumps(existing, indent=2))
+            save_path_results_obj.write_text(json.dumps(existing, indent=2))
             all_results.append(result)
 
             print("\n", " "*4, "Results:")
@@ -108,10 +110,10 @@ def benchmark(
 
         except Exception as e:
             log_error(
-                msg=f"FAILED run {run_id}/{total} | {run_desc} | {type(e).__name__}: {e}",
+                msg=f"FAILED run {run_id}/{total} | {run_desc} | {type(e).__name__}: {e}\n{traceback.format_exc()}",
                 save_path=save_path_logs
             )
-
+            
         run_id += 1
 
     print(f"Results saved in {save_path_results}")

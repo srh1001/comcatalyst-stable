@@ -5,7 +5,6 @@ import matplotlib.pyplot as plt
 from pathlib import Path
 from typing import Any, Dict, List, Tuple
 
-from ..utils import calc_convergence_iter_bo
 from ..context.vars_metadata import VarsMetadata
 
 
@@ -47,16 +46,13 @@ def slice_results_at_n_points(results: List[dict], n_points: int) -> List[dict]:
         y_true_at_x_opt = y_true_at_x_data_new.ravel()[best_idx]
 
         n_iter_bo_new = n_points - n_init
-        convergence_iter_bo_new = calc_convergence_iter_bo(
-            y_data=y_data_new, n_init=n_init
-        )
 
         r_sliced = {
             **r,
             "x_opt": x_opt,
             "y_opt": y_opt,
             "y_true_at_x_opt": y_true_at_x_opt,
-            "convergence_iter_bo": convergence_iter_bo_new,
+            "idx_opt": best_idx,
             "x_data": x_data_new.tolist(),
             "y_data": y_data_new.tolist(),
             "y_true_at_x_data": y_true_at_x_data_new.tolist(),
@@ -90,6 +86,8 @@ def plot_convergence_curve(
     filters: dict = None,
     figsize: tuple = (10, 5),
     ylim: Tuple[float, float] = (None, None),
+    vline: int = None,
+    fontsize: int = 10,
     title: str = None,
     save_path: str = None,
 ) -> None:
@@ -138,15 +136,19 @@ def plot_convergence_curve(
     # true max
     ax.axhline(results[0]["y_true_max"], color="red", ls="--", lw=1)
 
+    if vline:
+        ax.axvline(vline, color="red", ls="--", lw=1)
+
     if title is None:
         filter_str = ", ".join(f"{k}={v}" for k, v in (filters or {}).items())
         title = f"{metric}" + (f" | {filter_str}" if filter_str else "")
 
-    ax.set_xlabel("iterations")
-    ax.set_ylabel("y_best")
+    ax.set_xlabel("iterations", fontsize=fontsize)
+    ax.set_ylabel("y_best", fontsize=fontsize)
     ax.set_ylim(bottom=ylim[0], top=ylim[1])
-    ax.set_title(title)
-    ax.legend(fontsize=8)
+    ax.set_title(title, fontsize=fontsize-2)
+    ax.legend(fontsize=fontsize - 1)
+    ax.tick_params(axis="both", labelsize=fontsize - 1)
     ax.grid(True, alpha=0.3)
     plt.tight_layout()
     if save_path:
@@ -163,6 +165,7 @@ def plot_boxplot(
     filters: Dict[str, Any] = None,
     figsize: Tuple[int, int] = (7, 5),
     ylim: Tuple[float, float] = (None, None),
+    fontsize: int = 10,
     title: str = None,
     save_path: str = None,
 ) -> None:
@@ -191,9 +194,8 @@ def plot_boxplot(
     except ValueError:
         sorted_keys = sorted(groups.keys())
 
-    data   = [groups[k] for k in sorted_keys]
-    labels = [f"{k}" for k in sorted_keys]
-    labels = [f"{k}\n(tot={len(groups[k])})" for k in sorted_keys]
+    data = [groups[k] for k in sorted_keys]
+    labels = [f"{k}\n(n={len(groups[k])}, std={np.std(groups[k]):.3f})" for k in sorted_keys]    
     
     if title is None:
         filter_str = ", ".join(f"{k}={v}" for k, v in (filters or {}).items())
@@ -204,25 +206,33 @@ def plot_boxplot(
     fig, ax = plt.subplots(figsize=figsize)
     ax.boxplot(data, tick_labels=labels)
 
+    ax.set_ylim(bottom=ylim[0], top=ylim[1])
+    y_min, y_max = ax.get_ylim()
+
+
     for i, (key, d) in enumerate(zip(sorted_keys, data), start=1):
         median_val = np.median(d)
         mean_val = np.mean(d)
         min_val= np.min(d)
         max_val = np.max(d)
 
-        ax.text(i, median_val, f"med={median_val:.3f}", ha="center", va="bottom", fontsize=7, color="orange")
-        ax.text(i, mean_val, f"mean={mean_val:.4f}", ha="center", va="center", fontsize=7, color="blue")
-        ax.text(i, min_val, f"{min_val:.3f}", ha="center", va="top", fontsize=7, color="black")
-        ax.text(i, max_val, f"{max_val:.3f}", ha="center", va="bottom", fontsize=7, color="black")
-    
+        if y_min <= median_val <= y_max:
+            ax.text(i, median_val, f"med={median_val:.3f}", ha="center", va="bottom", fontsize=fontsize-2, color="orange")
+        if y_min <= mean_val <= y_max:
+            ax.text(i, mean_val, f"mean={mean_val:.3f}", ha="center", va="center", fontsize=fontsize-2, color="blue")
+        if y_min <= min_val <= y_max:
+            ax.text(i, min_val, f"{min_val:.3f}", ha="center", va="top", fontsize=fontsize-2, color="black")
+        if y_min <= max_val <= y_max:
+            ax.text(i, max_val, f"{max_val:.3f}", ha="center", va="bottom", fontsize=fontsize-2, color="black")
+        
     # true max
     if metric == "y_opt" or metric == "y_true_at_x_opt":
         ax.axhline(results[0]["y_true_max"], color="red", ls="--", lw=1)
 
-    ax.set_xlabel(group_by)
-    ax.set_ylabel(ylabel)
-    ax.set_ylim(bottom=ylim[0], top=ylim[1])
-    ax.set_title(title)
+    ax.set_xlabel(group_by, fontsize=fontsize)
+    ax.set_ylabel(ylabel, fontsize=fontsize)
+    ax.set_title(title, fontsize=fontsize-2)
+    ax.tick_params(axis="both", labelsize=fontsize - 2)
     ax.grid(True, alpha=0.3)
     plt.tight_layout()
 
@@ -233,43 +243,119 @@ def plot_boxplot(
         plt.show()
 
 
-# ---------- Investigate results
-
-def summarize_results(results: List[dict], epsilon: float, filters: dict = None) -> None:
+def summarize_results(
+    results: List[dict],
+    vars_metadata: Any,
+    epsilon: float,
+    filters: dict = None,
+) -> None:
     if filters:
         results = filter_results_by_hyperparams(results, filters)
 
     if not results:
         print("No results found after filter was applied.")
         return
-    
-    y_true_max = results[0]["y_true_max"]
-    all_y_true_at_x_opt = [r["y_true_at_x_opt"] for r in results]
-    all_y_opt = [r["y_opt"] for r in results]
-    all_y_init_max = [np.array(r['y_data'][:r['hyperparams']['n_init']]).max() for r in results]
-    all_seeds = [r["hyperparams"]["seed"] for r in results]
-    all_convergence_iter_bo = [r['convergence_iter_bo'] for r in results]
 
-    # taux de bons y gap selon un seuil
-    n_success = sum(1 for g in all_y_true_at_x_opt if (np.abs(y_true_max - g) < epsilon))
+    cat_dims: list[int] = vars_metadata.get_categorical_vars_indexes()
+    cont_dims: list[int] = vars_metadata.get_continuous_vars_indexes()
 
-    # means
+    x_true_max: np.ndarray = np.array(results[0]["x_true_max"])
+    y_true_max: float = results[0]["y_true_max"]
+
+    all_y_true_at_x_opt: list[float] = []
+    all_y_opt: list[float] = []
+    all_y_init_max: list[float] = []
+    all_correct_combo_in_init: list[int] = []
+    all_correct_modal_in_init: dict[int, list[int]] = {i: [] for i in cat_dims}
+    all_dist_best_init_to_opt: list[float] = []
+    all_noise: list[float] = []
+
+    for r in results:
+        n_init: int = r["hyperparams"]["n_init"]
+        x_data: np.ndarray = np.array(r["x_data"])
+        y_data: np.ndarray = np.array(r["y_data"])
+        y_true_at_x_data: np.ndarray = np.array(r["y_true_at_x_data"]).ravel()
+        x_init: np.ndarray = x_data[:n_init]
+
+        all_y_true_at_x_opt.append(r["y_true_at_x_opt"])
+        all_y_opt.append(r["y_opt"])
+        all_y_init_max.append(float(y_data[:n_init].max()))
+
+        mask: np.ndarray = np.all(x_init[:, cat_dims] == x_true_max[cat_dims], axis=1)
+        all_correct_combo_in_init.append(int(mask.sum()))
+
+        for cat_idx in cat_dims:
+            all_correct_modal_in_init[cat_idx].append(
+                int(np.sum(x_init[:, cat_idx] == x_true_max[cat_idx]))
+            )
+
+        best_init_idx: int = int(np.argmax(y_data[:n_init]))
+        all_dist_best_init_to_opt.append(
+            float(np.linalg.norm(x_data[best_init_idx][cont_dims] - x_true_max[cont_dims]))
+        )
+
+        all_noise.append(float(np.mean(np.abs(y_data - y_true_at_x_data))))
+
+    n_success: int = sum(1 for g in all_y_true_at_x_opt if np.abs(y_true_max - g) < epsilon)
+
     print(f"N runs={len(results)}")
     print(f"\ny_opt mean={np.mean(all_y_opt):.3f}, std={np.std(all_y_opt):.3f}, min={np.min(all_y_opt):.4f}, max={np.max(all_y_opt):.4f}")
     print(f"y_true_at_x_opt mean={np.mean(all_y_true_at_x_opt):.3f}, std={np.std(all_y_true_at_x_opt):.3f}, min={np.min(all_y_true_at_x_opt):.4f}, max={np.max(all_y_true_at_x_opt):.4f}")
-    print(f"conv_iter_bo mean={np.mean(all_convergence_iter_bo):.1f}, std={np.std(all_convergence_iter_bo):.1f}, min={np.min(all_convergence_iter_bo)}, max={np.max(all_convergence_iter_bo)}")
     print(f"\nSuccess rate gap={epsilon}: {n_success}/{len(results)}={100*n_success/len(results):.1f}%")
 
-    # correlations
-    print(f"\nCorrelation y_opt vs conv_iter_bo: {np.corrcoef(all_y_opt, all_convergence_iter_bo)[0,1]:.3f}")
-    print(f"Correlation y_true_at_x_opt vs conv_iter_bo: {np.corrcoef(all_y_true_at_x_opt, all_convergence_iter_bo)[0,1]:.3f}")
-    
-    print(f"\nCorrelation y_opt vs y_init_max: {np.corrcoef(all_y_opt, all_y_init_max)[0,1]:.3f}")
-    print(f"Correlation y_true_at_x_opt vs y_init_max: {np.corrcoef(all_y_true_at_x_opt, all_y_init_max)[0,1]:.3f}")
-    
-    print(f"\nCorrelation y_opt vs seed: {np.corrcoef(all_y_opt, all_seeds)[0,1]:.3f}")
-    print(f"Correlation y_true_at_x_opt vs seed: {np.corrcoef(all_y_true_at_x_opt, all_seeds)[0,1]:.3f}")
+    print(f"\nCorrelation y_true_at_x_opt vs y_init_max: {np.corrcoef(all_y_true_at_x_opt, all_y_init_max)[0,1]:.3f}")
+    print(f"Correlation y_true_at_x_opt vs n correct combo in init: {np.corrcoef(all_y_true_at_x_opt, all_correct_combo_in_init)[0,1]:.3f}")
 
+    for cat_idx in cat_dims:
+        var_name: str = vars_metadata[cat_idx].name
+        modal: int = int(x_true_max[cat_idx])
+        print(f"Correlation y_true_at_x_opt vs n '{var_name}={modal}' in init: {np.corrcoef(all_y_true_at_x_opt, all_correct_modal_in_init[cat_idx])[0,1]:.3f}")
+
+    print(f"Correlation y_true_at_x_opt vs dist best init to x_true_max: {np.corrcoef(all_y_true_at_x_opt, all_dist_best_init_to_opt)[0,1]:.3f}")
+    print(f"Correlation y_true_at_x_opt vs mean abs noise: {np.corrcoef(all_y_true_at_x_opt, all_noise)[0,1]:.3f}")
+
+def stats_bo_errors(
+    results: list[dict],
+    vars_metadata: Any,
+    filters: dict = None,
+) -> dict:
+    if filters:
+        results = filter_results_by_hyperparams(results, filters)
+
+    cat_dims = vars_metadata.get_categorical_vars_indexes()
+    cont_dims = vars_metadata.get_continuous_vars_indexes()
+
+    n_correct_combo = 0
+    n_x_opt_in_init = 0
+    dist_correct_combo = []
+    dist_wrong_combo = []
+
+    for result in results:
+        n_init = result["hyperparams"]["n_init"]
+        x_opt = np.array(result["x_opt"])
+        x_true_max = np.array(result["x_true_max"])
+
+        is_correct_combo = bool(np.all(x_opt[cat_dims] == x_true_max[cat_dims]))
+
+        if is_correct_combo:
+            n_correct_combo += 1
+            dist_correct_combo.append(float(np.linalg.norm(x_opt[cont_dims] - x_true_max[cont_dims])))
+        else:
+            dist_wrong_combo.append(float(np.linalg.norm(x_opt[cont_dims] - x_true_max[cont_dims])))
+
+        best_idx = int(np.argmax(np.array(result["y_data"])))
+        if best_idx < n_init:
+            n_x_opt_in_init += 1
+
+    n_runs = len(results)
+    print(f"N runs={n_runs}")
+
+    print(f"\n{'Prop correct combo of x_opt':<{58}}: {n_correct_combo / n_runs:.3f}")
+    print(f"{'Mean quant dist to x_true_max for correct combo of x_opt':<{58}}: {float(np.mean(dist_correct_combo)) if dist_correct_combo else None}")
+    print(f"{'Std quant dist to x_true_max for correct combo of x_opt':<{58}}: {float(np.std(dist_correct_combo)) if dist_correct_combo else None}")
+    print(f"{'Mean quant dist to x_true_max for wrong combo of x_opt':<{58}}: {float(np.mean(dist_wrong_combo)) if dist_wrong_combo else None}")
+    print(f"{'Std quant dist to x_true_max for wrong combo of x_opt':<{58}}: {float(np.std(dist_wrong_combo)) if dist_wrong_combo else None}")
+    print(f"{'Prop x_opt in x_init':<{58}}: {n_x_opt_in_init / n_runs:.3f}")
 
 def stats_x_opt_qual_combos(
     results: List[dict],
@@ -281,7 +367,7 @@ def stats_x_opt_qual_combos(
     if filters:
         results = filter_results_by_hyperparams(results, filters)
 
-    lb, ub  = metric_range
+    lb, ub = metric_range
     results = [r for r in results if lb <= r[metric] <= ub]
 
     if not results:
@@ -304,16 +390,50 @@ def stats_x_opt_qual_combos(
     print(f"\n{'Combo':<20} {'n':>4}  {'%':>6}")
     print("-" * 35)
     for combo, count in sorted(combo_counts.items(), key=lambda x: -x[1]):
-        print(f"{combo:<20} {count:>4}  {100*count/total:>5.1f}%")
+        print(f"{combo:<20} {count:>4}  {100*count/total:>6.1f}%")
 
+def stats_seed_variance(
+    results: list[dict],
+    metric: str,
+    filters: dict = None,
+) -> None:
+    if filters:
+        results = filter_results_by_hyperparams(results, filters)
+
+    if not results:
+        print("No results found after filter was applied.")
+        return
+
+    # Groupement par seed
+    by_seed: dict[int, list[float]] = {}
+    for r in results:
+        seed = r["hyperparams"]["seed"]
+        y = r[metric]
+        by_seed.setdefault(seed, []).append(y)
+
+    # Variance intra-seed et inter-seed
+    intra_vars: list[float] = []
+    seed_means: list[float] = []
+
+    for seed, ys in by_seed.items():
+        intra_vars.append(float(np.var(ys)))
+        seed_means.append(float(np.mean(ys)))
+
+    var_intra = float(np.mean(intra_vars))
+    var_inter = float(np.var(seed_means))
+
+    print(f"N seeds={len(by_seed)}, N runs={len(results)}")
+    print(f"\n{'Variance intra-seed':<35} : {var_intra:.4f}")
+    print(f"{'Variance inter-seed':<35} : {var_inter:.4f}")
+    print(f"{'Ratio inter/intra':<35} : {var_inter/var_intra:.3f}")
 
 def details_doe_by_metric_range(
     results: List[dict],
     vars_metadata: VarsMetadata, 
     metric: str,
     metric_range: Tuple[float, float],
+    top_k: int = None,
     filters: dict = None,
-    top_k: int = None
 ) -> None:
     if filters:
         results = filter_results_by_hyperparams(results, filters)
@@ -395,7 +515,6 @@ def plot_boxplot_by_seed(
     filters: dict = None,
     figsize: tuple = (12, 5),
     title: str = None,
-    save_path: str = None,
 ) -> None:
 
     if filters:
@@ -419,108 +538,6 @@ def plot_boxplot_by_seed(
     ax.set_ylabel(metric)
     ax.set_title(title or f"{metric} by seed")
     ax.grid(True, alpha=0.3)
-
-    plt.tight_layout()
-    plt.show()
-
-
-def plot_trajectory_by_qual(
-    result: dict,
-    vars_metadata: VarsMetadata,
-    quant_idx_1: int,
-    quant_idx_2: int,
-    x_true_max: np.ndarray = None,
-    figsize: tuple = (7, 6),
-    title: str = None,
-) -> None:
-    x_data = np.array(result["x_data"])
-    y_true_at_x_data = np.array(result["y_true_at_x_data"]).ravel()
-    n_init = result["hyperparams"]["n_init"]
-    n_pts  = len(x_data)
-
-    categ_idxs = [i for i, m in enumerate(vars_metadata) if m.is_categ_like()]
-    categ_combos = list(itertools.product(*[
-        vars_metadata[i].support for i in categ_idxs
-    ]))
-    n_combos = len(categ_combos)
-    n_cols = min(4, n_combos)
-    n_rows = (n_combos + n_cols - 1) // n_cols
-
-    meta_1 = vars_metadata[quant_idx_1]
-    meta_2 = vars_metadata[quant_idx_2]
-
-    fig, axes = plt.subplots(n_rows, n_cols, figsize=(figsize[0]*n_cols, figsize[1]*n_rows))
-    axes = np.array(axes).ravel()
-    fig.suptitle(title)
-
-    for ax, combo in zip(axes, categ_combos):
-        combo_label = "/".join(combo)
-
-        # masque pour cette combinaison qualitative
-        mask = np.ones(n_pts, dtype=bool)
-        for k, idx in enumerate(categ_idxs):
-            mask &= np.array([
-                vars_metadata[idx].support[int(x_data[j, idx])] == combo[k]
-                for j in range(n_pts)
-            ])
-
-        x1_all = x_data[mask, quant_idx_1]
-        x2_all = x_data[mask, quant_idx_2]
-        y_all  = y_true_at_x_data[mask]
-        idx_all = np.where(mask)[0] # indices globaux
-
-        # points doe et bo
-        mask_init = idx_all < n_init
-        mask_bo = idx_all >= n_init
-
-        ax.scatter(
-            x1_all[mask_init], x2_all[mask_init],
-            c=y_all[mask_init], cmap="viridis",
-            s=80, marker="x", zorder=5, label="DoE",
-            vmin=y_true_at_x_data.min(), vmax=y_true_at_x_data.max(),
-        )
-        ax.scatter(
-            x1_all[mask_bo], x2_all[mask_bo],
-            c=y_all[mask_bo], cmap="viridis",
-            s=80, marker="o", linewidths=1.5, zorder=5, label="BO",
-            vmin=y_true_at_x_data.min(), vmax=y_true_at_x_data.max(),
-        )
-
-        # numerotation des points
-        for j, (x1, x2, glob_idx) in enumerate(zip(x1_all, x2_all, idx_all)):
-            ax.annotate(
-                f"{glob_idx + 1} ({y_true_at_x_data[glob_idx]:.2f})",
-                xy=(x1, x2), fontsize=6,
-                xytext=(4, 4), textcoords="offset points",
-            )
-
-        # fleches entre points consecutifs de cette combinaison
-        for j in range(len(idx_all) - 1):
-            ax.annotate(
-                '',
-                xy=(x1_all[j+1], x2_all[j+1]),
-                xytext=(x1_all[j], x2_all[j]),
-                arrowprops=dict(arrowstyle='-|>', color='gray', lw=1.0, alpha=0.8),
-            )
-
-        # vrai optimum
-        if x_true_max is not None:
-            ax.scatter(
-                x_true_max[quant_idx_1], x_true_max[quant_idx_2],
-                color="red", s=100, marker="*", zorder=10, label="True max",
-            )
-
-        ax.set_xlim(meta_1.support)
-        ax.set_ylim(meta_2.support)
-        ax.set_xlabel(meta_1.name, fontsize=8)
-        ax.set_ylabel(meta_2.name, fontsize=8)
-        ax.set_title(combo_label, fontsize=9)
-        ax.legend(fontsize=7)
-        ax.grid(True, alpha=0.3)
-
-    # masquer les axes vides
-    for ax in axes[n_combos:]:
-        ax.set_visible(False)
 
     plt.tight_layout()
     plt.show()

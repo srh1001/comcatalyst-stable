@@ -100,9 +100,9 @@ def calc_gp_objective_03(
     rng: Optional[np.random.Generator] = None,
     _F: dict = {
         0: lambda q1, q2, q3: -(q1 + 0.8)**2 - (q2 - 0.7)**2 - (q3 + 0.6)**2 + 2.5,
-        1: lambda q1, q2, q3: -(q1 - 0.7)**2 - (q3 + 0.6)**2 - (q2 - 0.8)**2 + 0.5,
+        1: lambda q1, q2, q3: -(q1 - 0.7)**2 - (q2 - 0.8)**2 - (q3 + 0.6)**2 + 0.5,
         2: lambda q1, q2, q3: -(q1 - 0.0)**2 - (q2 - 0.8)**2 - (q3 + 0.3)**2 + 0.2,
-        3: lambda q1, q2, q3: -(q2 - 0.5)**2 - (q2 + 0.4)**2 - (q3 - 0.5)**2 + 0.3,
+        3: lambda q1, q2, q3: -(q1 - 0.5)**2 - (q2 + 0.4)**2 - (q3 - 0.5)**2 + 0.3,
     },
     _G: dict = {
         0: lambda q1, q2, q3: -(q1 - 0.6)**2 - (q2 - 0.5)**2 - (q3 - 0.7)**2 + 2.0,
@@ -113,6 +113,7 @@ def calc_gp_objective_03(
     _SCALE_Q1: dict = {0: 1, 1: 1, 2: 1, 3: 1},
     _SCALE_Q2: dict = {0: 1, 1: 1, 2: 2, 3: 1},
 ) -> np.ndarray:
+
     x = np.atleast_2d(x)
     n = x.shape[0]
     h_true = np.full((n, 1), np.nan)
@@ -128,6 +129,89 @@ def calc_gp_objective_03(
             _SCALE_Q1[qual1_idx] * _F[qual1_idx](quant1_val, quant2_val, quant3_val)
             + _SCALE_Q2[qual2_idx] * _G[qual2_idx](quant1_val, quant2_val, quant3_val)
         )
+
+        if sigma_noise is not None and sigma_noise > 0:
+            if rng is None:
+                rng = np.random.default_rng()
+            h += rng.normal(0.0, sigma_noise)
+
+        h_true[i, 0] = h
+
+    return h_true
+
+def calc_gp_objective_03_bis_2d(
+    x: np.ndarray,
+    vars_metadata: VarsMetadata,
+    z: Any,
+    sigma_noise: float,
+    rng: Optional[np.random.Generator] = None,
+    _F: dict = {
+        0: lambda q1, q2, q3: -(q1 + 0.8)**2 - (q2 - 0.7)**2 - (q3 + 0.6)**2 + 2.5,
+        1: lambda q1, q2, q3: -(q1 - 0.7)**2 - (q2 - 0.8)**2 - (q3 + 0.6)**2 + 0.5,
+        2: lambda q1, q2, q3: -(q1 - 0.0)**2 - (q2 - 0.8)**2 - (q3 + 0.3)**2 + 0.2,
+        3: lambda q1, q2, q3: -(q1 - 0.5)**2 - (q2 + 0.4)**2 - (q3 - 0.5)**2 + 0.3,
+    },
+    _G: dict = {
+        0: lambda q1, q2, q3: -(q1 - 0.6)**2 - (q2 - 0.5)**2 - (q3 - 0.7)**2 + 2.0,
+        1: lambda q1, q2, q3: -(q1 + 0.5)**2 - (q2 + 0.7)**2 - (q3 + 0.4)**2 + 0.3,
+        2: lambda q1, q2, q3: -(q1 - 0.3)**2 - (q2 - 0.2)**2 - (q3 + 0.6)**2 + 0.1,
+        3: lambda q1, q2, q3: -(q1 + 0.4)**2 - (q2 - 0.6)**2 - (q3 - 0.3)**2 + 0.0,
+    },
+    _SCALE_Q1: dict = {0: 1, 1: 1, 2: 1, 3: 1},
+    _SCALE_Q2: dict = {0: 1, 1: 1, 2: 2, 3: 1},
+) -> np.ndarray:
+    x = np.atleast_2d(x)
+    n = x.shape[0]
+    h_true = np.full((n, 1), np.nan)
+
+    for i in range(n):
+        qual1_idx  = int(x[i, 0])
+        qual2_idx  = int(x[i, 1])
+        quant1_val = float(x[i, 2])
+
+        #quant2_val = float(x[i, 3])
+        #quant3_val = 0.0505
+
+        quant2_val = 0.5960
+        quant3_val = float(x[i, 3])
+
+        h = (
+            _SCALE_Q1[qual1_idx] * _F[qual1_idx](quant1_val, quant2_val, quant3_val)
+            + _SCALE_Q2[qual2_idx] * _G[qual2_idx](quant1_val, quant2_val, quant3_val)
+        )
+
+        if sigma_noise is not None and sigma_noise > 0:
+            if rng is None:
+                rng = np.random.default_rng()
+            h += rng.normal(0.0, sigma_noise)
+        h_true[i, 0] = h
+
+    return h_true
+
+def calc_gp_objective_04(
+    x: np.ndarray,
+    vars_metadata: VarsMetadata,
+    z: Any,
+    sigma_noise: float,
+    rng: Optional[np.random.Generator] = None,
+    _H: dict = {
+        (0, 0): lambda x1, x2: 2*np.cos(5*x1) + 2*(np.cos(3*x2) - x2),
+        (0, 1): lambda x1, x2: 2*np.cos(5*x1) - 2*x2**2,
+        (1, 0): lambda x1, x2: 1.5*np.sin(3*x1 + np.pi/2) + 2*(np.cos(3*x2) - x2),
+        (1, 1): lambda x1, x2: 1.5*np.sin(3*x1 + np.pi/2) - 2*x2**2,
+    },
+) -> np.ndarray:
+
+    x = np.atleast_2d(x)
+    n = x.shape[0]
+    h_true = np.full((n, 1), np.nan)
+    for i in range(n):
+        qual1_idx = int(x[i, 0])
+        qual2_idx = int(x[i, 1])
+        x1 = float(x[i, 2])
+        x2 = float(x[i, 3])
+
+        h = _H[(qual1_idx, qual2_idx)](x1, x2)
 
         if sigma_noise is not None and sigma_noise > 0:
             if rng is None:

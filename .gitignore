@@ -3,7 +3,7 @@ data/
 output*/
 *.zip
 
-# Autre
+# Other
 *.ignore*
 
 # Byte-compiled / optimized / DLL files
